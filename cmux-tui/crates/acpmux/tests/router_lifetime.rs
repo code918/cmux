@@ -259,3 +259,23 @@ async fn a_kept_agent_keeps_its_router_and_the_next_daemon_adopts_it() {
     assert!(gone_within(router_pid, Duration::from_secs(10)), "the router outlived its last agent");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// PROOF ONLY (cx-f4thx, never lands): runs the kept-agent test 20 times in
+/// child processes of this test binary and counts the failures.
+#[test]
+fn zz_proof_loop_kept_agent_20x() {
+    let mut failed = Vec::new();
+    for i in 0..20 {
+        let out = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "a_kept_agent_keeps_its_router_and_the_next_daemon_adopts_it", "--test-threads", "1"])
+            .output()
+            .unwrap();
+        if !out.status.success() {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let why = text.lines().find(|l| l.contains("panicked") || l.contains("DIAG") || l.contains("failed")).unwrap_or("").to_owned();
+            failed.push(format!("run {i}: {why}"));
+        }
+    }
+    eprintln!("PROOF kept-agent: {} of 20 failed {failed:?}", failed.len());
+    assert!(failed.is_empty(), "PROOF kept-agent: {} of 20 failed: {failed:?}", failed.len());
+}
