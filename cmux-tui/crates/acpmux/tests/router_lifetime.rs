@@ -77,7 +77,7 @@ fn ask_router(dir: &Path, request: Value) -> Value {
     stream.write_all(format!("{request}\n").as_bytes()).unwrap();
     let mut line = String::new();
     BufReader::new(stream).read_line(&mut line).unwrap();
-    serde_json::from_str(&line).unwrap()
+    serde_json::from_str(&line).unwrap_or_else(|e| panic!("DIAG ask_router {request}: no reply ({e}): {line:?}"))
 }
 
 /// The router's pid from its admin socket (it starts after the daemon is
