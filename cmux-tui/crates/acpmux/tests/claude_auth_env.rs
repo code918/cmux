@@ -363,7 +363,7 @@ async fn an_agent_on_another_claude_home_names_both_homes() {
 /// fetch never runs the shell; an edited rc file runs it again.
 #[tokio::test]
 async fn the_login_shell_is_cached_without_secrets_and_rerun_on_change() {
-    let count = "echo \"run pid=$$ parent=$(ps -o command= -p $PPID | cut -c1-160) args=$*\" >> \"$HOME/shell-runs\"\n";
+    let count = "echo \"run pid=$$ ppid=$PPID parent=$(ps -o command= -p $PPID | tr '\\n' ' ' | cut -c1-120) args=$(printf %s \"$*\" | tr '\\n' ' ' | cut -c1-80)\" >> \"$HOME/shell-runs\"\n";
     let dir = scratch(
         "cache",
         &format!(
