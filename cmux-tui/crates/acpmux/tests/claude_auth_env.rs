@@ -378,7 +378,13 @@ async fn the_login_shell_is_cached_without_secrets_and_rerun_on_change() {
         let (reply, _) = ask(&d, "claude").await;
         assert_eq!(found(&reply)["auth"], json!(["ANTHROPIC_AUTH_TOKEN"]));
     }
-    assert_eq!(runs(), 1);
+    if runs() != 1 {
+        let shell = std::fs::read_to_string(dir.join("home/shell-runs")).unwrap_or_default();
+        let out = std::fs::read_to_string(dir.join("daemon.out")).unwrap_or_default();
+        let err = std::fs::read_to_string(dir.join("daemon.stderr")).unwrap_or_default();
+        let tail: String = out.lines().rev().take(60).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+        panic!("DIAG1 runs={}\nSHELL RUNS:\n{shell}\nDAEMON STDERR:\n{err}\nDAEMON OUT (last 60):\n{tail}", runs());
+    }
     let cache = dir.join("login-env.json");
     let text = std::fs::read_to_string(&cache).unwrap();
     assert!(!text.contains("s3cret-value"), "a secret value in the cache: {text}");
