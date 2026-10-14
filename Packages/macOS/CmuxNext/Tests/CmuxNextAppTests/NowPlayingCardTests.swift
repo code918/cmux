@@ -60,6 +60,8 @@ import Testing
 
         func close() {
             feed.cancel()
+            window.orderOut(nil)
+            window.contentView = nil
             window.close()
         }
     }
