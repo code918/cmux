@@ -40,7 +40,6 @@ fn start_router(home: &Path, stderr: &Path) -> Router {
     let child = Command::new(env!("CARGO_BIN_EXE_acpmux"))
         .args(["router", "serve"])
         .env("ACPMUX_HOME", home)
-        .env("CMUX_CODEROUTER_TEST_NO_KEYCHAIN", "1")
         .env("RUST_LOG", "warn")
         .env_remove("CMUX_ROUTER_OWNER_FIFO")
         .stdin(Stdio::null())
