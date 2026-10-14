@@ -592,3 +592,182 @@ fn open_url_in_an_empty_home_makes_a_frontend_tab() {
     assert_eq!(value(&again)["tab_id"], first["tab_id"], "{again}");
     assert_eq!(tab_count(&screen(&server, &home)), 1, "the second link made a tab");
 }
+
+/// PROBE (scratch branch only): every open path through the CLI, timed.
+fn timed_cli(server: &HeadlessServer, label: &str, args: &[&str], log: &mut Vec<String>) -> Output {
+    let started = Instant::now();
+    let output = json_cli(server, args);
+    let line = format!(
+        "PROBE {label}: {:?} status={:?} stdout={} stderr={}",
+        started.elapsed(),
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout).trim(),
+        String::from_utf8_lossy(&output.stderr).trim(),
+    );
+    eprintln!("{line}");
+    log.push(line);
+    output
+}
+
+#[test]
+fn probe_open_url_paths_through_the_cli() {
+    let mut log = Vec::new();
+    // 1. headless, no provider.
+    {
+        let server = HeadlessServer::start("probe-a");
+        let created = v2(
+            &server,
+            "workspace.create",
+            json!({"initial_content": "terminal", "name": "a"}),
+            Some("pa-ws"),
+        );
+        let ws = value(&created)["workspace_id"].as_str().unwrap().to_string();
+        timed_cli(
+            &server,
+            "1 no-provider ws",
+            &["workspace", &ws, "open-url", "--url", "https://example.com/"],
+            &mut log,
+        );
+        timed_cli(
+            &server,
+            "2 no-provider no-home",
+            &["workspace", "open-url", "--url", "https://example.com/"],
+            &mut log,
+        );
+        let home = v2(&server, "workspace.ensure_home", json!({}), Some("pa-home"));
+        let _ = value(&home);
+        timed_cli(
+            &server,
+            "3 no-provider empty-home",
+            &["workspace", "open-url", "--url", "https://example.com/"],
+            &mut log,
+        );
+        timed_cli(&server, "3b after list", &["workspace", "list"], &mut log);
+    }
+    // 2. stand-in provider.
+    {
+        let server = HeadlessServer::start("probe-b");
+        let _provider = browser_provider(&server);
+        let created = v2(
+            &server,
+            "workspace.create",
+            json!({"initial_content": "terminal", "name": "b"}),
+            Some("pb-ws"),
+        );
+        let ws = value(&created)["workspace_id"].as_str().unwrap().to_string();
+        timed_cli(
+            &server,
+            "4 provider create",
+            &["workspace", &ws, "open-url", "--url", "https://example.com/1"],
+            &mut log,
+        );
+        timed_cli(
+            &server,
+            "5 provider reuse",
+            &["workspace", &ws, "open-url", "--url", "https://example.com/2"],
+            &mut log,
+        );
+        let home = v2(&server, "workspace.ensure_home", json!({}), Some("pb-home"));
+        let _ = value(&home);
+        timed_cli(
+            &server,
+            "6 provider empty-home",
+            &["workspace", "open-url", "--url", "https://example.com/3"],
+            &mut log,
+        );
+        timed_cli(
+            &server,
+            "6b provider home again",
+            &["workspace", "open-url", "--url", "https://example.com/4"],
+            &mut log,
+        );
+        timed_cli(&server, "6c after list", &["workspace", "list"], &mut log);
+    }
+    // 3. frontend app attached.
+    {
+        let server = HeadlessServer::start("probe-c");
+        let _app = frontend_app(&server);
+        let created = v2(
+            &server,
+            "workspace.create",
+            json!({"initial_content": "terminal", "name": "c"}),
+            Some("pc-ws"),
+        );
+        let ws = value(&created)["workspace_id"].as_str().unwrap().to_string();
+        timed_cli(
+            &server,
+            "7 frontend create",
+            &["workspace", &ws, "open-url", "--url", "https://example.com/1"],
+            &mut log,
+        );
+        timed_cli(
+            &server,
+            "8 frontend reuse",
+            &["workspace", &ws, "open-url", "--url", "https://example.com/2"],
+            &mut log,
+        );
+        timed_cli(
+            &server,
+            "9 frontend no-home",
+            &["workspace", "open-url", "--url", "https://example.com/3"],
+            &mut log,
+        );
+        let home = v2(&server, "workspace.ensure_home", json!({}), Some("pc-home"));
+        let _ = value(&home);
+        timed_cli(
+            &server,
+            "10 frontend empty-home",
+            &["workspace", "open-url", "--url", "https://example.com/4"],
+            &mut log,
+        );
+        timed_cli(
+            &server,
+            "11 frontend home reuse",
+            &["workspace", "open-url", "--url", "https://example.com/5"],
+            &mut log,
+        );
+        // dock only
+        let (dws, dock, right) = docked_workspace(
+            &server,
+            "probe-dock",
+            json!({"edge": "left", "mode": "docked", "role": "agent_chat"}),
+        );
+        for pane in &right {
+            let closed = raw(
+                &server,
+                json!({"cmd": "close-pane", "pane": pane["id"], "end_terminals": true}),
+            );
+            eprintln!("PROBE close {closed}");
+        }
+        eprintln!("PROBE dock screen {}", screen(&server, &dws));
+        let _ = dock;
+        timed_cli(
+            &server,
+            "12 frontend dock-only",
+            &["workspace", &dws, "open-url", "--url", "https://example.com/6"],
+            &mut log,
+        );
+        timed_cli(&server, "12b after list", &["workspace", "list"], &mut log);
+    }
+    // 4. dock only, provider, no frontend.
+    {
+        let server = HeadlessServer::start("probe-d");
+        let _provider = browser_provider(&server);
+        let (dws, _dock, right) = docked_workspace(
+            &server,
+            "probe-dock2",
+            json!({"edge": "left", "mode": "docked", "role": "agent_chat"}),
+        );
+        for pane in &right {
+            raw(&server, json!({"cmd": "close-pane", "pane": pane["id"], "end_terminals": true}));
+        }
+        timed_cli(
+            &server,
+            "13 provider dock-only",
+            &["workspace", &dws, "open-url", "--url", "https://example.com/7"],
+            &mut log,
+        );
+        timed_cli(&server, "13b after list", &["workspace", "list"], &mut log);
+    }
+    panic!("PROBE RESULTS\n{}", log.join("\n"));
+}
