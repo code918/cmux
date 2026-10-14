@@ -20,6 +20,9 @@ mod background_task;
 // Claude's Agent tool as a subagent session, which shares these helpers too.
 #[path = "claude_subagents.rs"]
 mod claude_subagents;
+// The background-process registry over Claude's shells, which shares these helpers too.
+#[path = "processes.rs"]
+mod processes;
 
 const FORK_OP: &str = "acp.session.fork";
 
