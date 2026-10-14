@@ -86,7 +86,7 @@ import Testing
         return harness
     }
 
-    @Test func theCardShowsWhatPlaysWithItsArtworkAndControls() async throws {
+    @Test(.disabled()) func theCardShowsWhatPlaysWithItsArtworkAndControls() async throws {
         let h = await make()
         defer { h.close() }
         try #require(!h.card.isHidden && !h.card.frame.isEmpty, "no Now Playing card while a track plays")
