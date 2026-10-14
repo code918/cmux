@@ -370,8 +370,13 @@ async fn the_login_shell_is_cached_without_secrets_and_rerun_on_change() {
             "{count}export ANTHROPIC_AUTH_TOKEN=s3cret-value\nexport NO_PROXY=plain-value\nexport TEAM_ROUTE_NAME=not-allow-listed\n"
         ),
     );
-    let runs =
-        || std::fs::read_to_string(dir.join("home/shell-runs")).unwrap_or_default().lines().count();
+    let runs = || {
+        std::fs::read_to_string(dir.join("home/shell-runs"))
+            .unwrap_or_default()
+            .lines()
+            .filter(|l| l.starts_with("run pid="))
+            .count()
+    };
     let harnesses = json!({"claude": claude(json!({}))});
     {
         let d = start(&dir, harnesses.clone(), &[]).await;
