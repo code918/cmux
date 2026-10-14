@@ -108,9 +108,7 @@ import Testing
         let h = await make()
         defer { h.close() }
         try #require(!h.card.isHidden, "no Now Playing card while a track plays")
-        h.card.playPauseButton.performClick(nil)
-        h.card.nextButton.performClick(nil)
-        h.card.previousButton.performClick(nil)
+        for button in [h.card.playPauseButton, h.card.nextButton, h.card.previousButton] { _ = button.sendAction(button.action, to: button.target) }
         // A click a quarter of the way along the scrubber seeks to a quarter of the track.
         let scrubber = h.card.scrubber
         let point = scrubber.convert(NSPoint(x: scrubber.bounds.width / 4, y: scrubber.bounds.midY), to: nil)
