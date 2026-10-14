@@ -36,11 +36,10 @@ jobs:
       - name: Signing scripts from feat-cmux-next
         run: |
           set -euo pipefail
-          git fetch --quiet --no-tags --depth=1 https://github.com/${{ github.repository }}.git feat-cmux-next
-          mkdir -p "$RUNNER_TEMP/signer"
-          git archive FETCH_HEAD scripts/sign-cmux-bundle.sh scripts/import-apple-developer-id-intermediates.sh \
-            cmux.next-dev.entitlements cmux-helper.entitlements | tar -x -C "$RUNNER_TEMP/signer"
-          ls -R "$RUNNER_TEMP/signer"
+          # The whole trusted tree (no submodules): sign-cmux-bundle.sh reads helper scripts and
+          # entitlement files beside it. Nothing from the input build runs.
+          git clone --quiet --depth 1 --branch feat-cmux-next https://github.com/${{ github.repository }}.git "$RUNNER_TEMP/signer"
+          git -C "$RUNNER_TEMP/signer" log -1 --format='signer tree %H'
 
       - name: Fetch and check the input build
         id: input
