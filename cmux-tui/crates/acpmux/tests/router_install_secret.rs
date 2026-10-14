@@ -157,3 +157,23 @@ fn with_no_keychain_keys_work_for_one_router_run_and_the_status_says_ephemeral()
     }
     let _ = std::fs::remove_dir_all(&home);
 }
+
+/// PROOF ONLY (cx-f4thx, never lands): the no-keychain test 10 times in child
+/// processes of this test binary.
+#[test]
+fn zz_proof_loop_install_secret_10x() {
+    let mut failed = Vec::new();
+    for i in 0..10 {
+        let out = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "with_no_keychain_keys_work_for_one_router_run_and_the_status_says_ephemeral", "--test-threads", "1"])
+            .output()
+            .unwrap();
+        if !out.status.success() {
+            let text = String::from_utf8_lossy(&out.stdout);
+            let why = text.lines().find(|l| l.contains("panicked") || l.contains("assert")).unwrap_or("").to_owned();
+            failed.push(format!("run {i}: {why}"));
+        }
+    }
+    eprintln!("PROOF install-secret: {} of 10 failed {failed:?}", failed.len());
+    assert!(failed.is_empty(), "PROOF install-secret: {} of 10 failed: {failed:?}", failed.len());
+}
