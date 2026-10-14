@@ -363,7 +363,7 @@ async fn an_agent_on_another_claude_home_names_both_homes() {
 /// fetch never runs the shell; an edited rc file runs it again.
 #[tokio::test]
 async fn the_login_shell_is_cached_without_secrets_and_rerun_on_change() {
-    let count = "echo run >> \"$HOME/shell-runs\"\n";
+    let count = "echo \"run pid=$$ parent=$(ps -o command= -p $PPID | cut -c1-160) args=$*\" >> \"$HOME/shell-runs\"\n";
     let dir = scratch(
         "cache",
         &format!(
@@ -396,7 +396,13 @@ async fn the_login_shell_is_cached_without_secrets_and_rerun_on_change() {
         let (reply, _) = ask(&d, "claude").await;
         assert!(reply.is_err(), "no token is left: {reply:?}");
     }
-    assert_eq!(runs(), 2);
+    if runs() != 2 {
+        let shell = std::fs::read_to_string(dir.join("home/shell-runs")).unwrap_or_default();
+        let out = std::fs::read_to_string(dir.join("daemon.out")).unwrap_or_default();
+        let err = std::fs::read_to_string(dir.join("daemon.stderr")).unwrap_or_default();
+        let tail: String = out.lines().rev().take(60).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+        panic!("DIAG runs={}\nSHELL RUNS:\n{shell}\nDAEMON STDERR:\n{err}\nDAEMON OUT (last 60):\n{tail}", runs());
+    }
     // Same files, no secret in the cache: no shell at all.
     {
         let d = start(&dir, harnesses.clone(), &[]).await;
