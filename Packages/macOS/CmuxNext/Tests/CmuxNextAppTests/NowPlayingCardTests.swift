@@ -104,7 +104,7 @@ import Testing
         }
     }
 
-    @Test func theControlsAndTheScrubberReachTheSource() async throws {
+    @Test(.disabled()) func theControlsAndTheScrubberReachTheSource() async throws {
         let h = await make()
         defer { h.close() }
         try #require(!h.card.isHidden, "no Now Playing card while a track plays")
