@@ -124,6 +124,45 @@ struct LastSurfaceClosePreferenceTests {
     }
 
     @Test
+    func childExitOnLastSurfaceKeepsWorkspaceOpenWhenKeepWorkspaceOpenPreferenceIsEnabled() throws {
+        try withManager(closeWorkspaceOnLastSurface: false) { manager in
+            let firstWorkspace = manager.tabs[0]
+            let secondWorkspace = manager.addWorkspace()
+            manager.selectWorkspace(secondWorkspace)
+
+            let secondPanelId = try #require(secondWorkspace.focusedPanelId)
+
+            // 셸 exit / Ctrl+D 로 마지막 터미널이 종료된 상황
+            manager.closePanelAfterChildExited(tabId: secondWorkspace.id, surfaceId: secondPanelId)
+            drainMainQueueForCloseTest(timeout: mainActorTestMainQueueSpin)
+            drainMainQueueForCloseTest(timeout: mainActorTestMainQueueSpin)
+
+            #expect(manager.tabs.map(\.id) == [firstWorkspace.id, secondWorkspace.id])
+            #expect(manager.selectedTabId == secondWorkspace.id)
+            #expect(secondWorkspace.panels[secondPanelId] == nil)
+            #expect(secondWorkspace.panels.count == 1)
+            #expect(secondWorkspace.panels.values.first is TerminalPanel)
+        }
+    }
+
+    @Test
+    func childExitOnLastSurfaceClosesWorkspaceWhenKeepWorkspaceOpenPreferenceIsDisabled() throws {
+        try withManager(closeWorkspaceOnLastSurface: true) { manager in
+            let firstWorkspace = manager.tabs[0]
+            let secondWorkspace = manager.addWorkspace()
+            manager.selectWorkspace(secondWorkspace)
+
+            let secondPanelId = try #require(secondWorkspace.focusedPanelId)
+
+            manager.closePanelAfterChildExited(tabId: secondWorkspace.id, surfaceId: secondPanelId)
+            drainMainQueueForCloseTest(timeout: mainActorTestMainQueueSpin)
+            drainMainQueueForCloseTest(timeout: mainActorTestMainQueueSpin)
+
+            #expect(manager.tabs.map(\.id) == [firstWorkspace.id])
+        }
+    }
+
+    @Test
     func remoteTmuxWindowCloseClosesWorkspaceWhenKeepWorkspaceOpenPreferenceIsDisabled() throws {
         try withManager(closeWorkspaceOnLastSurface: true) { manager in
             let firstWorkspace = manager.tabs[0]

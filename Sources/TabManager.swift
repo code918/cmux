@@ -3661,6 +3661,13 @@ class TabManager: ObservableObject {
             return
         }
 
+        // "마지막 서피스를 닫아도 작업 공간 유지" 설정이 켜져 있으면 Cmd+W 와 똑같이
+        // 서피스만 닫는다. 작업 공간은 비면 새 터미널로 채워지고 삭제되지 않는다.
+        if tab.panels.count <= 1, !closeWorkspaceOnLastSurfacePreferenceEnabled() {
+            closeRuntimeSurface(tabId: tabId, surfaceId: surfaceId)
+            return
+        }
+
         // Child-exit on the last panel should collapse the workspace, matching explicit close
         // semantics (and close the window when it was the last workspace).
         if tab.panels.count <= 1 {
