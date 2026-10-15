@@ -19,6 +19,11 @@ struct AboutPanelView: View {
         let env = ProcessInfo.processInfo.environment["CMUX_COMMIT"] ?? ""
         return env.isEmpty ? nil : env
     }
+    // 포크 수정 내역 (최신순, 한 줄씩)
+    private static let forkChanges: [String] = [
+        "10/15  앱 재시작 시 세션 활동 시각이 현재로 덮이는 문제 수정",
+    ]
+
     private var copyright: String? { Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String }
 
     var body: some View {
@@ -57,6 +62,21 @@ struct AboutPanelView: View {
                     AboutPropertyRow(label: String(localized: "about.commit", defaultValue: "Commit"), text: commitText, url: commitURL)
                 }
                 .frame(maxWidth: .infinity)
+
+                // 포크(code918/cmux)에서 직접 고친 내역. 새 수정은 맨 위에 한 줄 추가 (최신순)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("우리가 고친 것")
+                        .cmuxFont(.caption)
+                        .bold()
+                    ForEach(Self.forkChanges, id: \.self) { line in
+                        Text(line)
+                            .cmuxFont(.caption)
+                            .opacity(0.8)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 8) {
                     if let url = docsURL {
