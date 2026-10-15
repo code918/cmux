@@ -687,7 +687,9 @@ final class AgentChatSessionRegistry {
                 if let normalizedCwd { record.workingDirectory = normalizedCwd }
                 record.pid = nil
                 record.setProcessObservedIdle()
-                record.lastActivityAt = now
+                // 재개(resume)는 cmux 가 앱 재시작 때 자동으로 거는 것이라 "활동"이 아니다.
+                // 여기서 now 로 덮으면 재시작 직후 모든 세션이 "방금"으로 보인다.
+                // 실제 활동 시각은 다음 훅 이벤트가 갱신한다.
             }
             return
         }
@@ -709,6 +711,38 @@ final class AgentChatSessionRegistry {
         stampLifecycleTransition(previous: nil, current: &record, at: now)
         stampVersion(&record)
         storeRecord(record, replacing: nil)
+        // 위 now 는 임시값이다. 훅 저장소에 남아 있는 마지막 활동 시각(updatedAt)으로
+        // 되돌린다. 시드는 claude/codex 저장소만 읽고, 이미 있는 레코드의 시각은
+        // 건드리지 않으므로 재개로 먼저 만들어진 레코드는 여기서 직접 복원해야 한다.
+        restorePersistedActivityAfterResume(
+            sessionID: sessionID,
+            agentSource: source,
+            placeholder: now
+        )
+    }
+
+    /// 재개로 새로 만든 레코드의 lastActivityAt 을 훅 저장소의 updatedAt 으로 복원한다.
+    /// 파일 읽기·파싱은 메인 액터 밖에서 하고, 그 사이 실제 활동(훅 이벤트 등)으로
+    /// 시각이 바뀌었으면 그 값을 존중해 덮어쓰지 않는다.
+    private func restorePersistedActivityAfterResume(
+        sessionID: String,
+        agentSource: String,
+        placeholder: Date
+    ) {
+        let store = hookStore
+        Task { [weak self] in
+            let entry = await Task.detached(priority: .utility) {
+                store.entry(agentSource: agentSource, sessionID: sessionID)
+            }.value
+            guard let self,
+                  let updatedAt = entry?.updatedAt,
+                  self.records[sessionID]?.lastActivityAt == placeholder else { return }
+            self.update(sessionID: sessionID) { record in
+                // 기다리는 동안 새 활동이 들어왔으면 그대로 둔다.
+                guard record.lastActivityAt == placeholder else { return }
+                record.lastActivityAt = updatedAt
+            }
+        }
     }
 
     /// Reads one session's hook-store entry OFF the main actor and applies any
